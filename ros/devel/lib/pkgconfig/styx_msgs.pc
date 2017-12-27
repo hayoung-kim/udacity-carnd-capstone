@@ -1,0 +1,8 @@
+prefix=/home/hayoung/carnd/capstone/ros/devel
+
+Name: styx_msgs
+Description: Description of styx_msgs
+Version: 0.0.0
+Cflags: -I/home/hayoung/carnd/capstone/ros/devel/include
+Libs: -L/home/hayoung/carnd/capstone/ros/devel/lib 
+Requires: 
