@@ -64,6 +64,9 @@ class DBWNode(object):
         # TODO: Subscribe to all the topics you need to
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.angular_vel_cb)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
+
+        self.dbw_enabled = False
 
         self.loop()
 
@@ -75,6 +78,9 @@ class DBWNode(object):
 
     def angular_vel_cb(self, msg):
         self.target_angular_vel = msg.twist.angular.z # rad/s
+
+    def dbw_enabled_cb(self, msg):
+        self.dbw_enabled = msg
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
@@ -90,9 +96,23 @@ class DBWNode(object):
             #   self.publish(throttle, brake, steer)
             # get current linear speed
 
-            throttle, brake, steering = self.controller.control(self.current_vel,
-                                                                self.target_angular_vel)
-            self.publish(throttle, brake, steering)
+            if self.target_angular_vel != None and self.current_vel != None:
+                is_data = True
+            else:
+                is_data = False
+
+            if is_data:
+                throttle, brake, steering = self.controller.control(self.current_vel,
+                                                                    self.target_angular_vel,
+                                                                    self.dbw_enabled)
+
+                if self.dbw_enabled:
+                    print('Throttle: ' + str(throttle))
+                    print('Brake: ' + str(brake))
+                    print " [-] target steering wheel angle = %.2f (deg)" % (steering * 3.141592 / 180)
+
+                    self.publish(throttle, brake, steering)
+
             rate.sleep()
 
     def publish(self, throttle, brake, steer):

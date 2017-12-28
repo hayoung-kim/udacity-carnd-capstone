@@ -1,0 +1,8 @@
+prefix=/home/kyushik/Desktop/udacity-carnd-capstone/ros/install
+
+Name: styx
+Description: Description of styx
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/kyushik/Desktop/udacity-carnd-capstone/ros/install/lib 
+Requires: 
