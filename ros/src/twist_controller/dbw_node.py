@@ -30,7 +30,6 @@ Once you have the proposed throttle, brake, and steer values, publish it on the 
 that we have created in the `__init__` function.
 
 '''
-
 class DBWNode(object):
     def __init__(self):
         rospy.init_node('dbw_node')
@@ -53,12 +52,29 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
+
+
+        self.current_vel = 0.0
+        self.target_angular_vel = 0.0
+
         # TODO: Create `TwistController` object
-        # self.controller = TwistController(<Arguments you wish to provide>)
+        self.controller = Controller(wheel_base, steer_ratio)
+
 
         # TODO: Subscribe to all the topics you need to
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.angular_vel_cb)
 
         self.loop()
+
+        rospy.spin()
+
+    def velocity_cb(self, msg):
+        self.current_vel = msg.twist.linear.x # m/s
+        # print " [-] current velocity in m/s = %.3f" %(self.current_vel)
+
+    def angular_vel_cb(self, msg):
+        self.target_angular_vel = msg.twist.angular.z # rad/s
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
@@ -72,6 +88,11 @@ class DBWNode(object):
             #                                                     <any other argument you need>)
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
+            # get current linear speed
+
+            throttle, brake, steering = self.controller.control(self.current_vel,
+                                                                self.target_angular_vel)
+            self.publish(throttle, brake, steering)
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
