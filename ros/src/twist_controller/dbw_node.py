@@ -107,9 +107,9 @@ class DBWNode(object):
                                                                     self.dbw_enabled)
 
                 if self.dbw_enabled:
-                    print('Throttle: ' + str(throttle))
-                    print('Brake: ' + str(brake))
-                    print " [-] target steering wheel angle = %.2f (deg)" % (steering * 3.141592 / 180)
+                    # print('Throttle: ' + str(throttle))
+                    # print('Brake: ' + str(brake))
+                    # print " [-] target steering wheel angle = %.2f (deg)" % (steering * 3.141592 / 180)
 
                     self.publish(throttle, brake, steering)
 
