@@ -154,7 +154,7 @@ class TLDetector(object):
         except (tf.Exception, tf.LookupException, tf.ConnectivityException):
             rospy.logerr("Failed to find camera to map transform")
 
-        #DONE Use tranform and rotation to calculate 2D position of light in image
+        #Use tranform and rotation to calculate 2D position of light in image
         f = 2300
         x_offset = -30
         y_offset = 340
@@ -192,18 +192,16 @@ class TLDetector(object):
             return False
 
 
-        # imm = cv2.circle(cv_image, (x,y), 10, (255,0,0), 4)
         imm = cv_image
         crop = 90
         xmin = x - crop if (x-crop) >= 0 else 0
         ymin = y - crop if (y-crop) >= 0 else 0
 
-        # TODO:
         xmax = x + crop if (x + crop) <= imm.shape[1]-1 else imm.shape[1]-1
         ymax = y + crop if (y + crop) <= imm.shape[0]-1 else imm.shape[0]-1
         imm_cropped = imm[ymin:ymax,xmin:xmax]
-        cv2.imshow("test",imm_cropped)
-        cv2.waitKey(5)
+        # cv2.imshow("test",imm_cropped)
+        # cv2.waitKey(5)
 
 
         #Get classification
