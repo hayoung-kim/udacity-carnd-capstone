@@ -4,6 +4,7 @@ import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
+from styx_msgs.msg import Lane, Waypoint
 import math
 
 from twist_controller import Controller
@@ -56,15 +57,18 @@ class DBWNode(object):
 
         self.current_vel = 0.0
         self.target_angular_vel = 0.0
+        self.target_linear_vel = 0.0
 
         # TODO: Create `TwistController` object
-        self.controller = Controller(wheel_base, steer_ratio)
+        min_speed = 0.0
+        self.controller = Controller(wheel_base, steer_ratio, min_speed, max_lat_accel, max_steer_angle)
 
 
         # TODO: Subscribe to all the topics you need to
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.angular_vel_cb)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
+        rospy.Subscriber('/final_waypoints', Lane, self.final_waypoints_cb)
 
         self.dbw_enabled = False
 
@@ -81,6 +85,9 @@ class DBWNode(object):
 
     def dbw_enabled_cb(self, msg):
         self.dbw_enabled = msg
+
+    def final_waypoints_cb(self, msg):
+        self.target_linear_vel = msg.waypoints[0].twist.twist.linear.x
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
@@ -103,6 +110,7 @@ class DBWNode(object):
 
             if is_data:
                 throttle, brake, steering = self.controller.control(self.current_vel,
+                                                                    self.target_linear_vel,
                                                                     self.target_angular_vel,
                                                                     self.dbw_enabled)
 

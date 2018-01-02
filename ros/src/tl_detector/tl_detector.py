@@ -239,13 +239,13 @@ class TLDetector(object):
         #     len(self.lights),len(self.traffic_light_waypoint_indexes),tl_idx))
         if light:
             state = self.get_light_state(self.lights[tl_idx])
-            print('light found is a ',state)
-            print ' [-] light_wp = '
-            print light_wp
-            print ' [-] stopline wp :'
-            print self.waypoints.waypoints[light_wp]
-
-            print ' ------------------------ '
+            # print('light found is a ',state)
+            # print ' [-] light_wp = '
+            # print light_wp
+            # print ' [-] stopline wp :'
+            # print self.waypoints.waypoints[light_wp]
+            #
+            # print ' ------------------------ '
             return light_wp, state
         # self.waypoints = None
         return -1, TrafficLight.UNKNOWN
