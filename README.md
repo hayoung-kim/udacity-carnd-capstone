@@ -24,5 +24,5 @@ Our team have three members.
 | ------ | ------ | 
 | Hayoung Kim (lead) | altairyoung@gmail.com |
 | Kyushik Min | kyushikmin@gmail.com |
-| Luke Xu | jyxsxu@gmail.com |
+| Luke Xu | xzhsgdtc@gmail.com |
 | Tejas Varunjikar | tejas2687@gmail.com |
