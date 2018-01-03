@@ -8,11 +8,11 @@ MAX_SPEED = 40.
 
 mps2mph = 2.236936
 
-lon_kp = 0.1
-lon_ki = 0.1
-lon_kd = 0.1
+lon_kp = 0.01
+lon_ki = 0.01
+lon_kd = 0.01
 
-coeff_brake = 1.0
+coeff_brake = 20.0
 
 class Controller(object):
     def __init__(self, wheel_base, steer_ratio, min_speed, max_lat_accel, max_steer_angle):
@@ -47,6 +47,10 @@ class Controller(object):
 
             if vel_err < 0:
                 brake = abs(coeff_brake * vel_err)
+
+            if target_linear_vel < 1:
+                throttle = 0
+                brake = 100
 
         self.time_old = self.time
 

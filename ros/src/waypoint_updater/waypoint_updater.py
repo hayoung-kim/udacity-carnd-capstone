@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped
 from styx_msgs.msg import Lane, Waypoint
 from tf.transformations import euler_from_quaternion
+from std_msgs.msg import Int32
 
 import math
+import numpy as np
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -23,14 +25,18 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
-
+DECEL_LIMIT = -1
+DIST_MARGIN = 3
 
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
+
         self.sub_all_waypoints = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
@@ -45,6 +51,16 @@ class WaypointUpdater(object):
         self.waypoints = None
         self.count = 0
 
+        self.traffic_waypoint = None
+        self.vel_base = 0.0
+        self.current_vel = 0.0
+
+        self.DECEL_RATE = 0.5
+
+        self.time_old = rospy.get_time()
+        self.time = 0
+        self.stopping = False
+        self.stop_dict = {}
 
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
@@ -53,11 +69,13 @@ class WaypointUpdater(object):
 
             if final_waypoints_exist:
                 self.final_waypoints_pub.publish(self.final_waypoints)
-            # print "hello!"
             rate.sleep()
 
 
         rospy.spin()
+
+    def velocity_cb(self, msg):
+        self.current_vel = msg.twist.linear.x # m/s
 
     def pose_cb(self, msg):
         # TODO: Implement
@@ -75,13 +93,18 @@ class WaypointUpdater(object):
     def waypoints_cb(self, waypoints):
         # TODO: Implement
         print " [*] GET WAYPOINTS ... "
-
+        _max_vel = 0.0
         if self.waypoints == None:
             self.waypoints = []
-            for _waypoint in waypoints.waypoints:
+            for idx, _waypoint in enumerate(waypoints.waypoints):
                 _w = Waypoint()
                 _w = _waypoint
                 self.waypoints.append(_w)
+                _vel = self.get_waypoint_velocity(_w)
+                if _vel > _max_vel:
+                    _max_vel = _vel
+                    self.vel_base = self.get_waypoint_velocity(_w)
+
 
     def get_closest_waypoint(self):
         closest_dist = 999999.
@@ -95,9 +118,81 @@ class WaypointUpdater(object):
 
     def set_final_waypoints(self):
         final_waypoints_exist = False
-        if (self.waypoints is not None) and (self.position is not None):
+        if (self.waypoints is not None) and (self.position is not None) and (self.traffic_waypoint is not None):
+
+            self.time = rospy.get_time()
+            sample_time = self.time - self.time_old
+
             final_waypoints_exist = True
+
+            # Get closest waypoint idx
             closest_waypoint = self.get_closest_waypoint()
+
+            # Get index of stopline
+            stopline_waypoint_idx = self.traffic_waypoint
+            stopline_waypoint_idx = int(str(stopline_waypoint_idx).split()[1])
+
+            # Get distance to next stopline
+            dist_next_stopline = self.distance(self.waypoints, closest_waypoint, stopline_waypoint_idx)
+            dist_next_stopline = max(0, dist_next_stopline - DIST_MARGIN)
+
+            # Initialize
+            req_a = 0
+            stop_time = 0
+            stop_distance = 0
+
+            # If ahead traffic light is red, then calcultate
+            # Request acceleration [m/s^2]
+            # Expected time to stop [sec]
+            # Expected distance to stop [m]
+            if dist_next_stopline != 0:
+                req_a = -(self.current_vel ** 2) / (2 * dist_next_stopline)
+                stop_time = - (self.current_vel / req_a)
+                stop_distance = -(0.5 * req_a) * (stop_time ** 2) + (self.current_vel * stop_time)
+
+            # Scheduling the target velocity from stop signal on position to stopline
+            if req_a < -0.7 and stop_distance != 0 and stop_distance > dist_next_stopline and self.stopping == False:
+                self.stopping = True
+
+                waypoint_margin = 1
+                self.stop_dict = {}
+
+                # Get waypoint index to stopline and assign velocity to each waypoint
+                for i in range(0, stopline_waypoint_idx - closest_waypoint):
+
+                    if stopline_waypoint_idx - closest_waypoint - waypoint_margin > 0:
+                        vel_input = max(self.current_vel - (self.current_vel * (i+1) / (stopline_waypoint_idx - closest_waypoint - waypoint_margin)), 0)
+                    else:
+                        vel_input = 0
+
+                    self.stop_dict[closest_waypoint + i] = vel_input
+            #
+            # # If vehicle req acceleration is less than max decel, than just go
+            # if req_a < DECEL_LIMIT:
+            #     self.stopping = False
+
+            if stopline_waypoint_idx == -1:
+                # If green light
+                Is_red_light = False
+                self.set_waypoint_velocity(self.waypoints, closest_waypoint, self.vel_base)
+                self.stopping = False
+            else:
+                Is_red_light = True
+                self.set_waypoint_velocity(self.waypoints, closest_waypoint, self.vel_base)
+
+                if self.stopping == True:
+                    self.set_waypoint_velocity(self.waypoints, closest_waypoint, self.stop_dict[closest_waypoint])
+
+            print('=======================================')
+            print('closest waypoint: ' + str(closest_waypoint))
+            print('stopline waypoint: ' + str(stopline_waypoint_idx))
+            print('current vel: ') + str(self.current_vel)
+            print('request acc: ' + str(req_a))
+            print('stop time: ' + str(stop_time))
+            print('stop distance: ' + str(stop_distance))
+            print('dist_next_stopline: ' + str(dist_next_stopline))
+            print('is stopping: ' + str(self.stopping))
+            print('Is_red_light: ' + str(Is_red_light))
 
             _lookahead_wps = LOOKAHEAD_WPS
             if closest_waypoint + _lookahead_wps > len(self.waypoints):
@@ -107,12 +202,16 @@ class WaypointUpdater(object):
             self.final_waypoints = Lane()
             self.final_waypoints.waypoints = []
             for i in range(_lookahead_wps):
+
                 self.final_waypoints.waypoints.append(self.waypoints[closest_waypoint + i])
+
+            self.time_old = self.time
+
         return final_waypoints_exist
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        self.traffic_waypoint = msg
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
