@@ -20,9 +20,9 @@ This node finally calculates throttle, brake and steering angle to follow longit
 # Contributors
 Our team have three members. 
 
-| Name | E-mail | 
-| ------ | ------ | 
+| Name               | E-mail                |
+| ------------------ | --------------------- |
 | Hayoung Kim (lead) | altairyoung@gmail.com |
-| Kyushik Min | kyushikmin@gmail.com |
-| Luke Xu | xzhsgdtc@gmail.com |
-| Tejas Varunjikar | tejas2687@gmail.com |
+| Kyushik Min        | frog0813@naver.com    |
+| Luke Xu            | xzhsgdtc@gmail.com    |
+| Tejas Varunjikar   | tejas2687@gmail.com   |
