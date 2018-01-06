@@ -15,14 +15,14 @@ The purpose of waypoint updater is to update the target velocity property of eac
 The longitudinal target velocity was set in `waypoint_updater` node. This node determine the target yawrate to keep the lane by using pure-pursuit algorithm.
 
 ## DBW(Drive-By-Wire) Node
-This node finally calculates throttle, brake and steering angle to follow longitudinal and lateral trajectory simultaneously. We used PID controller to calculate throttle and brake based on the difference between the current velocity and the target velocity. 
+This node finally calculates throttle, brake and steering angle to follow longitudinal and lateral trajectory simultaneously. We used PID controller to calculate throttle and brake based on the difference between the current velocity and the target velocity. We also use PID controller based on cross-track error (cte) to calculate appropriate steering command.
 
 # Contributors
-Our team have three members. 
+Our team has four members. 
 
-| Name               | E-mail                |
-| ------------------ | --------------------- |
+| Name | E-mail | 
+| ------ | ------ | 
 | Hayoung Kim (lead) | altairyoung@gmail.com |
-| Kyushik Min        | frog0813@naver.com    |
-| Luke Xu            | xzhsgdtc@gmail.com    |
-| Tejas Varunjikar   | tejas2687@gmail.com   |
+| Kyushik Min | kyushikmin@gmail.com |
+| Luke Xu | xzhsgdtc@gmail.com |
+| Tejas Varunjikar | tejas2687@gmail.com |

@@ -4,7 +4,9 @@ import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+import numpy as np
 import math
 
 from twist_controller import Controller
@@ -58,6 +60,8 @@ class DBWNode(object):
         self.current_vel = 0.0
         self.target_angular_vel = 0.0
         self.target_linear_vel = 0.0
+        self.final_waypoints = None
+        self.current_pose = None
 
         # TODO: Create `TwistController` object
         min_speed = 0.0
@@ -69,6 +73,7 @@ class DBWNode(object):
         rospy.Subscriber('/twist_cmd', TwistStamped, self.angular_vel_cb)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
         rospy.Subscriber('/final_waypoints', Lane, self.final_waypoints_cb)
+        rospy.Subscriber('/current_pose', PoseStamped, self.current_pose_cb)
 
         self.dbw_enabled = False
 
@@ -88,9 +93,13 @@ class DBWNode(object):
 
     def final_waypoints_cb(self, msg):
         self.target_linear_vel = msg.waypoints[0].twist.twist.linear.x
+        self.final_waypoints = msg.waypoints
+
+    def current_pose_cb(self,msg):
+        self.current_pose=msg
 
     def loop(self):
-        rate = rospy.Rate(50) # 50Hz
+        rate = rospy.Rate(10) # 50Hz
         while not rospy.is_shutdown():
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
@@ -109,10 +118,12 @@ class DBWNode(object):
                 is_data = False
 
             if is_data:
+                cte = self.get_cte(self.final_waypoints, self.current_pose)
                 throttle, brake, steering = self.controller.control(self.current_vel,
                                                                     self.target_linear_vel,
                                                                     self.target_angular_vel,
-                                                                    self.dbw_enabled)
+                                                                    self.dbw_enabled,
+                                                                    cte)
 
                 if self.dbw_enabled:
                     # print('Throttle: ' + str(throttle))
@@ -141,6 +152,42 @@ class DBWNode(object):
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
 
+    def get_cte(self,final_waypoints,current_pose):
+        if final_waypoints is not None and current_pose is not None:
+            #pick closest waypoints as origin
+            orig=final_waypoints[0].pose.pose.position
+            # convert waypoints to x,y list
+            waypoints_xy_list=list(map(lambda waypoint: [waypoint.pose.pose.position.x,
+                                                        waypoint.pose.pose.position.y],
+                                      final_waypoints))
+
+            # coordinate transformation (linear shift)
+            transformed_xy_list=waypoints_xy_list-np.array([orig.x,orig.y])
+
+            #find slope close to chosen original to determine angle of rotation
+            angle=np.arctan2(transformed_xy_list[5,1],transformed_xy_list[5,0])
+            rotation_matrix=np.array([
+                [np.cos(angle), -np.sin(angle)],
+                [np.sin(angle), np.cos(angle)]])
+            #coordinate transformation (rotation)
+            transformed2_xy_list= np.dot(transformed_xy_list,rotation_matrix)
+
+            #curve fitting
+            poly_coeff=np.polyfit(transformed2_xy_list[:,0],transformed2_xy_list[:,1],2)
+
+            transformed_car_pose=np.array([current_pose.pose.position.x-orig.x,
+                                           current_pose.pose.position.y - orig.y])
+            transformed2_car_pose=np.dot(transformed_car_pose,rotation_matrix)
+
+            #y estimate based on lane information in transformed coordinate system
+            y_estimate=np.polyval(poly_coeff,transformed2_car_pose[0])
+            y_car=transformed2_car_pose[1]
+
+            cte=y_estimate-y_car
+        else:
+            cte=0
+
+        return cte
 
 if __name__ == '__main__':
     DBWNode()

@@ -12,6 +12,10 @@ lon_kp = 0.01
 lon_ki = 0.01
 lon_kd = 0.01
 
+lat_kp=0.2
+lat_ki=0.004
+lat_kd=0.2
+
 coeff_brake = 20.0
 
 class Controller(object):
@@ -22,13 +26,14 @@ class Controller(object):
 
         # PID.step -> step(self, error, sample_time)
         self.PID_lon = PID(lon_kp, lon_ki, lon_kd, mn = 0.0, mx = 1.0)
+        self.PID_steer = PID(lat_kp, lat_ki, lat_kd, mn=-max_steer_angle, mx=max_steer_angle)
 
         self.time_old = rospy.get_time()
         self.time = 0
 
         self.yaw_controller = YawController(wheel_base, steer_ratio, min_speed, max_lat_accel, max_steer_angle)
 
-    def control(self, current_linear_vel, target_linear_vel, target_angular_vel, dbw_enabled):
+    def control(self, current_linear_vel, target_linear_vel, target_angular_vel, dbw_enabled, cte):
         # TODO: Change the arg, kwarg list to suit your needs
         # Return throttle, brake, steer
         self.time = rospy.get_time()
@@ -38,12 +43,13 @@ class Controller(object):
         brake = 0.0
         steer = 0.0
 
-        steer = self.yaw_controller.get_steering(target_linear_vel, target_angular_vel, current_linear_vel)
+        #steer = self.yaw_controller.get_steering(target_linear_vel, target_angular_vel, current_linear_vel)
 
         if dbw_enabled:
             # vel_err = target_linear_vel - mps2mph * current_linear_vel
             vel_err = target_linear_vel - current_linear_vel # m/s - m/s
             throttle = self.PID_lon.step(vel_err, sample_time)
+            steer = self.PID_steer.step(cte, sample_time)
 
             if vel_err < 0:
                 brake = abs(coeff_brake * vel_err)
@@ -51,6 +57,9 @@ class Controller(object):
             if target_linear_vel < 1:
                 throttle = 0
                 brake = 100
+
+        else:
+            self.PID_steer.reset()
 
         self.time_old = self.time
 
